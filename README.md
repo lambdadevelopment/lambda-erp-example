@@ -93,29 +93,10 @@ the backend (core pip package + the acme plugin) at one origin.
   using its shared `tailwind-preset`. We import the core's `styles.css` (tokens
   + base layers) and override the `--brand` token.
 
-## Upgrading the core
+## License
 
-Bump both versions in lockstep and rebuild:
-- `pyproject.toml` → `lambda-erp==X.Y.Z`
-- `frontend/package.json` → `@lambda-development/erp-core@^X.Y.Z`
+MIT. See [LICENSE](LICENSE) for the full text.
 
-The extension seams are semver-governed; a breaking change there is a major bump.
+## Trademarks and affiliations
 
-## Status
-
-**Scaffolded — not yet built end-to-end against the published packages.** Before
-treating this as the canonical template, do one real build to confirm the
-published `0.1.2` artifacts install and compose:
-
-- [ ] `pip install -e .` resolves `lambda-erp==0.1.2` and `uvicorn app:app` boots
-  (plugin loads, `[plugins] loading acme` in the logs).
-- [ ] `cd frontend && npm install && npm run build` produces `frontend/dist`
-  importing `@lambda-development/erp-core` (and `tsc -b` passes).
-- [ ] `docker build .` succeeds and the running container serves the branded UI
-  at `/` with the custom dashboard.
-- [ ] Decide: keep as a plain example, or convert to a `cookiecutter` template
-  (open question from the core's Phase D plan).
-
-Possible core improvement surfaced while scaffolding: the core could accept an
-env-configurable frontend-dist path so a customer wouldn't need the `app.py`
-static-mount shim. Tracked against the core, not here.
+Lambda ERP and lambda.dev are product and trade names of TORUS INVESTMENTS AG. It is not affiliated with, endorsed by, or sponsored by OpenAI, Anthropic, SAP, Oracle, Microsoft, or any other company named in this repository. SAP, Business One, S/4HANA, Oracle, NetSuite, Microsoft, Dynamics, OpenAI, GPT, Anthropic, and Claude are trademarks of their respective owners and are referenced here only for descriptive and comparative purposes (nominative fair use). We interoperate with OpenAI and Anthropic APIs as a customer like anyone else; you supply your own API keys.
