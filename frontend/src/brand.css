@@ -1,0 +1,6 @@
+/* Brand overrides, layered on top of @lambda-development/erp-core/styles.css.
+   configureBranding({ tokens }) sets these at runtime too; doing it in CSS as
+   well keeps the very first paint on-brand. Values are HSL channel triplets. */
+:root {
+  --brand: 265 80% 60%; /* violet */
+}
