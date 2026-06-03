@@ -79,6 +79,12 @@ docker run -p 8000:8000 -v acme-data:/data acme-erp   # http://localhost:8000
 The image builds the frontend (core npm package + overrides) and serves it from
 the backend (core pip package + the acme plugin) at one origin.
 
+> **Going to production?** Read [docs/deploying.md](docs/deploying.md) first —
+> it covers the one thing that bites: **persistence**. SQLite needs a real disk
+> (it can't get file locks on a network share like Azure Files), so on a managed
+> container platform you point `LAMBDA_ERP_DB` at **PostgreSQL** instead. Also
+> covers the single-replica constraint and the stable `JWT_SECRET_KEY`.
+
 ## How the pieces fit
 
 - **Plugin loading:** the core reads `LAMBDA_ERP_PLUGINS` on startup and calls
