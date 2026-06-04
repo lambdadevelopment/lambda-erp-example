@@ -7,10 +7,11 @@ deployment at this module with `LAMBDA_ERP_PLUGINS=acme`.
 import os
 
 from api.services import register_doctype
-from api.pdf import register_pdf_template_dir
+from api.pdf import register_pdf_template_dir, register_pdf_context
 from lambda_erp.hooks import register_hook
 
 from .sales_invoice import AcmeSalesInvoice
+from .swiss_qr import qr_bill_provider
 
 PDF_TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "pdf_templates")
 
@@ -31,3 +32,8 @@ def register() -> None:
     # 3) Use our own PDF template (acme/pdf_templates/document.html) for all
     #    generated invoices/documents — overrides the built-in layout/styling.
     register_pdf_template_dir(PDF_TEMPLATE_DIR)
+    # 4) Add a Swiss QR-bill to invoices via register_pdf_context: when the
+    #    company has an IBAN (Company.iban) and the invoice is in CHF/EUR, this
+    #    injects `qr_bill_img` (a PNG data URI) the template renders at the foot.
+    #    Reference type auto-detects (QR-IBAN -> QRR, else SCOR). See swiss_qr.py.
+    register_pdf_context(qr_bill_provider("en"))

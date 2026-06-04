@@ -6,7 +6,13 @@ requires-python = ">=3.10"
 dependencies = [
     # The published backend core (PyPI). Pulls in FastAPI, the document
     # lifecycle, GL/stock engines, the chat API, weasyprint, etc.
-    "lambda-erp==0.1.11",
+    # 0.1.13 adds the register_pdf_context() seam + Company.iban used below.
+    "lambda-erp==0.1.13",
+    # Swiss QR-bill on invoices (acme/swiss_qr.py): qrbill builds the payment
+    # part as SVG, cairosvg rasterises it to a PNG the PDF embeds. Cairo system
+    # libs are already present for weasyprint.
+    "qrbill>=1.0",
+    "cairosvg>=2.7",
 ]
 
 [build-system]

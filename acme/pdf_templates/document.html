@@ -57,6 +57,13 @@
 
   .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 7.5pt; color: #999; text-align: center; }
   .remarks { margin-top: 15px; padding: 8px; background: #fefce8; border-radius: 4px; font-size: 8pt; color: #713f12; }
+
+  /* Swiss QR-bill (invoices only; injected by acme/swiss_qr.py via
+     register_pdf_context). The image is the full receipt + payment part and
+     already includes the spec's perforation lines (horizontal cut + vertical
+     separator, with scissors), so we add no separators of our own. */
+  .qrbill { margin-top: 24px; page-break-inside: avoid; }
+  .qrbill img { width: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -194,6 +201,13 @@
 {% if doc.remarks %}
 <div class="remarks">
   <strong>Remarks:</strong> {{ doc.remarks }}
+</div>
+{% endif %}
+
+{# ---- Swiss QR-bill (invoices with a creditor IBAN) ---- #}
+{% if qr_bill_img %}
+<div class="qrbill">
+  <img src="{{ qr_bill_img }}" alt="Swiss QR-bill">
 </div>
 {% endif %}
 
