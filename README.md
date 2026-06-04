@@ -27,6 +27,12 @@ All overrides go through the public extension seams — zero core files touched.
 - `acme/plugin.py` — `register()` wires it up with `register_doctype("Sales
   Invoice", AcmeSalesInvoice)` and adds a `register_hook("Sales
   Invoice:after_submit", …)` side-effect (the **extend** seam).
+- `acme/pdf_templates/document.html` — a custom invoice/document **PDF**
+  template, wired via `register_pdf_template_dir(…)` in `register()` (the **PDF
+  override** seam). It started as a copy of the core template and gets the same
+  render context, so you just restyle the same data (logo, letterhead, CSS).
+  Requires a `lambda-erp` release that includes `register_pdf_template_dir`
+  (bump the pin to that version).
 
 **Frontend** (`frontend/src/`):
 - `plugin.tsx` — `configureBranding` (name + brand colour), `configureApiBase`,
@@ -41,8 +47,10 @@ lambda-erp-example/
   pyproject.toml          # lambda-erp==0.1.2  (the backend core)
   app.py                  # ASGI entry: core app + serves THIS frontend build
   acme/
-    plugin.py             # register() — overrides + hooks
+    plugin.py             # register() — overrides + hooks + PDF template dir
     sales_invoice.py      # AcmeSalesInvoice(SalesInvoice)
+    pdf_templates/
+      document.html       # custom PDF (register_pdf_template_dir)
   frontend/
     package.json          # @lambda-development/erp-core ^0.1.2 + its peers
     tailwind.config.ts    # scans the core dist + uses its preset
