@@ -16,10 +16,11 @@ Depends on `qrbill` and `cairosvg` (declared in this package's dependencies).
 """
 import base64
 import io
+import re
 
 import cairosvg
 from qrbill import QRBill
-from qrbill.bill import esr
+from qrbill.bill import LABELS, esr
 
 # Swiss QR-bills carry amounts in CHF or EUR only.
 _QR_CURRENCIES = {"CHF", "EUR"}
@@ -91,6 +92,25 @@ def _address(name, info):
     }
 
 
+def _widen_amount_gap(svg_text, language, shift_mm=5.0):
+    """Shift the amount column (Betrag heading + value) right by `shift_mm`.
+
+    qrbill hardcodes the amount heading 12 mm right of the currency heading,
+    which the 9 pt bold payment-part "Währung" overflows — the two words
+    collide. The value below the heading (and the blank-amount rect, when no
+    amount is set) shares the heading's exact x coordinate, so rewriting every
+    element at that x moves the whole column and keeps it aligned.
+    """
+    label = LABELS["Amount"].get(language, "Amount")
+    shift = shift_mm * 90 / 25.4  # qrbill SVG user units are 90 per inch
+    xs = re.findall(
+        r'<text[^>]+x="([\d.]+)"[^>]*>{}</text>'.format(re.escape(label)), svg_text
+    )
+    for x in set(xs):
+        svg_text = svg_text.replace('x="{}"'.format(x), 'x="{:.5f}"'.format(float(x) + shift))
+    return svg_text
+
+
 def qr_bill_provider(language="de"):
     """Build a register_pdf_context() provider that adds a Swiss QR-bill.
 
@@ -141,7 +161,8 @@ def qr_bill_provider(language="de"):
 
         svg = io.StringIO()
         bill.as_svg(svg)
-        png = cairosvg.svg2png(bytestring=svg.getvalue().encode("utf-8"), output_width=2480)
+        svg_text = _widen_amount_gap(svg.getvalue(), language)
+        png = cairosvg.svg2png(bytestring=svg_text.encode("utf-8"), output_width=2480)
         return {"qr_bill_img": "data:image/png;base64," + base64.b64encode(png).decode("ascii")}
 
     return provider

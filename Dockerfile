@@ -29,7 +29,10 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # weasyprint (a lambda-erp dep) needs the Pango/Cairo stack; curl powers the
-# healthcheck. Mirrors the core image's system deps.
+# healthcheck. Mirrors the core image's system deps. fonts-liberation gives the
+# QR-bill its spec-mandated Arial-compatible face (fontconfig metric-aliases
+# Arial/Helvetica -> Liberation Sans); without it text falls back to a wider
+# face and the payment-part headings collide.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpango-1.0-0 \
@@ -37,6 +40,7 @@ RUN apt-get update \
         libharfbuzz0b \
         libcairo2 \
         libgdk-pixbuf-2.0-0 \
+        fonts-liberation \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
