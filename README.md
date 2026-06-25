@@ -6,8 +6,8 @@ does **not** fork or vendor the core repo:
 
 | Layer | Depends on | From |
 |-------|-----------|------|
-| Backend | `lambda-erp==0.1.30` | PyPI |
-| Frontend | `@lambda-development/erp-core@^0.1.30` | npm |
+| Backend | `lambda-erp==0.1.31` | PyPI |
+| Frontend | `@lambda-development/erp-core@^0.1.31` | npm |
 
 It doubles as the **template** a real (private) customer repo copies. Core fixes
 arrive via a version bump in `pyproject.toml` / `frontend/package.json` — never a
@@ -44,7 +44,7 @@ All overrides go through the public extension seams — zero core files touched.
 
 ```
 lambda-erp-example/
-  pyproject.toml          # lambda-erp==0.1.30  (the backend core)
+  pyproject.toml          # lambda-erp==0.1.31  (the backend core)
   app.py                  # ASGI entry: core app + serves THIS frontend build
   acme/
     plugin.py             # register() — overrides + hooks + PDF template dir
@@ -52,7 +52,7 @@ lambda-erp-example/
     pdf_templates/
       document.html       # custom PDF (register_pdf_template_dir)
   frontend/
-    package.json          # @lambda-development/erp-core ^0.1.30 + its peers
+    package.json          # @lambda-development/erp-core ^0.1.31 + its peers
     tailwind.config.ts    # scans the core dist + uses its preset
     src/{main,plugin,dashboard}.tsx, brand.css
   Dockerfile              # one container: builds frontend, serves via backend
