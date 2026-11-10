@@ -134,11 +134,18 @@ def qr_bill_provider(language="de"):
             return None
 
         doc = context.get("doc") or {}
-        # Amount to pay: remaining balance if partially paid, else the full total.
+        # Credit notes and cancelled or discarded invoices ask for no payment.
+        # (Since lambda-erp 1.0 a provider that raises fails the whole export,
+        # so this must not hand QRBill a negative amount.)
+        if doc.get("is_return") or doc.get("docstatus") == 2 or doc.get("discarded"):
+            return None
+        # Amount to pay: the remaining balance; nothing left -> no payment slip.
         amount = doc.get("outstanding_amount")
-        if amount is None or amount <= 0:
+        if amount is None:
             amount = doc.get("grand_total") or 0
         amount = round(float(amount), 2)
+        if amount <= 0:
+            return None
 
         creditor = _address(context.get("company_name"), company_info)
         debtor = _address(context.get("party_name"), context.get("party_info"))

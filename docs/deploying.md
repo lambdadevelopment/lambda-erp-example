@@ -9,9 +9,9 @@ provider-agnostic; adapt the specifics to your cloud.
 
 ## The data model in one paragraph
 
-The backend keeps *all* state in a single database and holds some in-memory
-state (chat sessions) inside the process. By default that database is **SQLite**
-(`LAMBDA_ERP_DB` points at a file). This shapes two hard rules below.
+The backend keeps *all* state in a single database. By default that database
+is **SQLite** (`LAMBDA_ERP_DB` points at a file); on a managed platform it is
+**PostgreSQL**. That choice shapes the rules below.
 
 ## Rule 1 — pick durable storage that SQLite can actually use, *or* use Postgres
 
@@ -35,7 +35,8 @@ pip install lambda-erp[postgres]          # pulls psycopg
 export LAMBDA_ERP_DB="postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require"
 ```
 
-`lambda-erp` (>= 0.1.5) selects the backend from `LAMBDA_ERP_DB`: a
+This example already depends on `lambda-erp[postgres]`, so the image has the
+driver. `lambda-erp` selects the backend from `LAMBDA_ERP_DB`: a
 `postgresql://…` value uses Postgres; anything else is treated as a SQLite path.
 No code change — same app, same seams. Put the URL (it contains a password) in a
 **secret**, not a plaintext env var.
@@ -44,18 +45,30 @@ Rule of thumb:
 - **VM / box with a disk** → SQLite is fine and simplest.
 - **Managed container platform** → Postgres.
 
-## Rule 2 — one replica, one worker
+## Rule 2 — SQLite: one process; Postgres: as many as you like
 
-SQLite is single-writer, and the chat session state lives in the process. Run
-**a single replica with `--workers 1`**. Scale *up* (more CPU/RAM), not *out*.
-(Postgres removes the SQLite-writer limit, but the in-memory chat state still
-pins you to one replica until that moves to a shared store.)
+- **SQLite** is single-writer: run **a single replica with `--workers 1`** and
+  scale *up* (more CPU/RAM), not *out*.
+- **Postgres** (lambda-erp >= 1.3): several workers and replicas can share one
+  database, including an old and a new revision side by side during a deploy.
+  Numbering, migrations and chat sessions are coordinated through the database.
+  This requires a stable `JWT_SECRET_KEY` (Rule 3).
 
 ## Rule 3 — a stable `JWT_SECRET_KEY`
 
 Set `JWT_SECRET_KEY` and keep it **constant across deploys** — a new value
 invalidates every login cookie. If unset, the app generates one, which is fine
-for local dev but means everyone is logged out on each restart.
+for local dev but means everyone is logged out on each restart, and with
+Postgres it is required (each replica would generate a different one).
+
+## Rule 4 — tell the app its public address
+
+Behind a TLS proxy (any cloud load balancer or container platform) the app sees
+plain `http://` requests. Set `OAUTH_REDIRECT_BASE` to the public
+`https://` address: social sign-in uses it, and `app.py` passes it on as
+`MCP_PUBLIC_URL`, which MCP / OAuth discovery advertises. Without it, connecting
+the ERP to lambda.dev, Claude or ChatGPT (`https://<erp-host>/api/mcp`) fails
+at sign-in. Set `MCP_PUBLIC_URL` yourself only if the two differ.
 
 ## Minimal production shape
 
@@ -67,7 +80,8 @@ docker run -p 8000:8000 \
   -e LAMBDA_ERP_PLUGINS=acme \
   -e LAMBDA_ERP_DB="postgresql://erp:…@db.internal:5432/erp?sslmode=require" \
   -e JWT_SECRET_KEY="<stable-random>" \
-  -e OPENAI_API_KEY=… -e ANTHROPIC_API_KEY=… \
+  -e OAUTH_REDIRECT_BASE="https://erp.example.com" \
+  -e OPENAI_API_KEY=… \
   my-erp
 ```
 

@@ -8,6 +8,7 @@ import os
 
 from api.services import register_doctype
 from api.pdf import register_pdf_template_dir, register_pdf_context
+from api.pdf_templates import register_pdf_template_requirement
 from lambda_erp.hooks import register_hook
 
 from .sales_invoice import AcmeSalesInvoice
@@ -29,11 +30,18 @@ def register() -> None:
     register_doctype("Sales Invoice", AcmeSalesInvoice)
     # 2) Add a side-effect on submit without replacing anything (extend).
     register_hook("Sales Invoice:after_submit", on_invoice_submitted)
-    # 3) Use our own PDF template (acme/pdf_templates/document.html) for all
-    #    generated invoices/documents — overrides the built-in layout/styling.
+    # 3) Use our own PDF templates (acme/pdf_templates/): document.html for
+    #    invoices, orders and offers, plus delivery_note.html, proposal.html and
+    #    reservation.html. They override the built-in layouts; a document type
+    #    without a file here keeps the core's. They are also the "Standard"
+    #    layout under Settings -> PDF Templates.
     register_pdf_template_dir(PDF_TEMPLATE_DIR)
     # 4) Add a Swiss QR-bill to invoices via register_pdf_context: when the
     #    company has an IBAN (Company.iban) and the invoice is in CHF/EUR, this
     #    injects `qr_bill_img` (a PNG data URI) the template renders at the foot.
     #    Reference type auto-detects (QR-IBAN -> QRR, else SCOR). See swiss_qr.py.
     register_pdf_context(qr_bill_provider("en"))
+    # 5) Every invoice layout must print the QR-bill: a layout made under
+    #    Settings -> PDF Templates without {{ qr_bill_img }} warns on publish,
+    #    and so does an invoice using it.
+    register_pdf_template_requirement("Sales Invoice", "qr_bill_img", "Swiss QR-bill")

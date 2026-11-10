@@ -1,11 +1,13 @@
 <!--
-  Acme ERP — custom invoice/document PDF template.
+  Acme ERP: custom invoice/order/offer PDF template (registered with
+  register_pdf_template_dir in acme/plugin.py; files here are searched before
+  the built-in ones, so anything not shipped here falls back to the core).
 
-  This OVERRIDES the built-in lambda-erp PDF (registered via
-  register_pdf_template_dir in acme/plugin.py). It started as a copy of the
-  core template; restyle it freely. It receives the same render context the
-  core builds: doc, title, company_name, company_info, party_label, party_name,
-  party_info, currency, meta_fields, items, taxes, show_warehouse, page_size.
+  It started as a copy of lambda-erp 1.4.0's own template (api/templates/document.html); restyle it
+  freely. Keep every block that prints document content: the core checks the
+  rendered PDF against the document (amounts, lines, intro and remarks, the
+  draft/cancelled notice, recurring summaries) and refuses an export, or skips
+  archiving on submit, if any of it is missing.
 -->
 <!DOCTYPE html>
 <html>
@@ -37,6 +39,9 @@
   table.items th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 8pt; font-weight: 600; color: #555; border-bottom: 2px solid #e2e8f0; }
   table.items td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
   table.items .num { text-align: right; }
+  /* A deduction on the line above (item.discount_label / discount_total). */
+  table.items tr.deduction td { font-style: italic; color: #555; padding-top: 0; }
+  table.items tr.has-deduction td { border-bottom: none; }
   table.items tfoot td { border-top: 2px solid #e2e8f0; font-weight: bold; }
 
   .totals { margin-left: auto; width: 250px; margin-bottom: 20px; }
@@ -57,6 +62,19 @@
 
   .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 7.5pt; color: #999; text-align: center; }
   .remarks { margin-top: 15px; padding: 8px; background: #fefce8; border-radius: 4px; font-size: 8pt; color: #713f12; }
+  /* Structured notes (remarks_html). A template can restyle these freely. */
+  .remarks .rm-block { overflow: hidden; margin-bottom: 8px; }
+  .remarks .rm-block:last-child { margin-bottom: 0; }
+  .remarks .rm-h { font-weight: 700; }
+  .remarks .rm-h + .rm-p, .remarks .rm-p + .rm-p { margin-top: 2px; }
+  .remarks .rm-amt { float: right; text-align: right; margin: 0 0 4px 16px; }
+  .remarks .rm-amt-val { white-space: nowrap; }
+  .remarks .rm-hr { border-top: 1px solid #d1d5db; margin: 6px 0; }
+  .remarks em { font-style: italic; }
+  .remarks strong { font-weight: 700; }
+  /* The offer's intro text: same markup as the notes, without the box. */
+  .remarks.intro { margin: 0 0 15px; padding: 0; background: none; border-radius: 0; font-size: 9pt; color: inherit; }
+  .state-notice { display: inline-block; margin-bottom: 8pt; padding: 3px 10px; border: 1.5px solid #b91c1c; border-radius: 4px; color: #b91c1c; font-size: 10pt; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
 
   /* Swiss QR-bill (invoices only; injected by acme/swiss_qr.py via
      register_pdf_context). The image is the full receipt + payment part and
@@ -67,6 +85,7 @@
 </style>
 </head>
 <body>
+{% if pdf_state_notice %}<div class="state-notice">{{ pdf_state_notice }}</div>{% endif %}
 
 {# ---- Header ---- #}
 <div class="header">
@@ -118,6 +137,11 @@
 </div>
 {% endif %}
 
+{# ---- Intro text (offers) ---- #}
+{% if intro_html is defined and intro_html %}
+<div class="remarks intro">{{ intro_html | safe }}</div>
+{% endif %}
+
 {# ---- Items table ---- #}
 <table class="items">
   <thead>
@@ -133,14 +157,28 @@
   </thead>
   <tbody>
     {% for item in items %}
-    <tr>
+    <tr{% if item.discount_total %} class="has-deduction"{% endif %}>
       <td>{{ loop.index }}</td>
       <td style="font-weight: 600">{{ item.item_code or "" }}</td>
-      <td>{{ item.item_name or item.description or "" }}</td>
+      <td>{{ item.item_name or item.description or "" }}{% if item.frequency %}<br>{{ item.frequency }}{% endif %}</td>
       {% if show_warehouse %}<td>{{ item.warehouse or "" }}</td>{% endif %}
       <td class="num">{{ item.qty }}</td>
+      {% if item.discount_total %}
+      <td class="num">{{ "%.2f"|format(item.gross_rate) }}</td>
+      <td class="num">{{ "%.2f"|format(item.gross_amount) }}</td>
+    </tr>
+    <tr class="deduction">
+      <td></td>
+      <td></td>
+      <td>{{ item.discount_label }}</td>
+      {% if show_warehouse %}<td></td>{% endif %}
+      <td></td>
+      <td></td>
+      <td class="num">&minus;{{ "%.2f"|format(item.discount_total) }}</td>
+      {% else %}
       <td class="num">{{ "%.2f"|format(item.rate or 0) }}</td>
-      <td class="num">{{ "%.2f"|format(item.amount or item.net_amount or (item.qty or 0) * (item.rate or 0)) }}</td>
+      <td class="num">{{ "%.2f"|format(item.amount) }}</td>
+      {% endif %}
     </tr>
     {% endfor %}
   </tbody>
@@ -171,6 +209,7 @@
 </div>
 {% endif %}
 
+{% for grp in recurring_summary %}<p>{{ grp.frequency }}: {{ currency }} {{ "%.2f"|format(grp.net_total) }} + {{ "%.2f"|format(grp.total_taxes_and_charges) }} Tax = {{ "%.2f"|format(grp.grand_total) }}</p>{% endfor %}
 {# ---- Totals ---- #}
 <div class="totals">
   <table>
@@ -198,16 +237,11 @@
 </div>
 
 {# ---- Remarks ---- #}
-{% if doc.remarks %}
-<div class="remarks">
+{% if remarks_html is defined and remarks_html %}
+<div class="remarks">{{ remarks_html | safe }}</div>
+{% elif doc.remarks %}
+<div class="remarks" style="white-space: pre-line;">
   <strong>Remarks:</strong> {{ doc.remarks }}
-</div>
-{% endif %}
-
-{# ---- Swiss QR-bill (invoices with a creditor IBAN) ---- #}
-{% if qr_bill_img %}
-<div class="qrbill">
-  <img src="{{ qr_bill_img }}" alt="Swiss QR-bill">
 </div>
 {% endif %}
 
@@ -216,5 +250,12 @@
   {{ doc.name }} &middot; Generated from Lambda ERP
 </div>
 
+
+{# ---- Swiss QR-bill (invoices with a creditor IBAN) ---- #}
+{% if qr_bill_img %}
+<div class="qrbill">
+  <img src="{{ qr_bill_img }}" alt="Swiss QR-bill">
+</div>
+{% endif %}
 </body>
 </html>

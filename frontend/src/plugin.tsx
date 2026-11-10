@@ -5,8 +5,10 @@ import {
   configureBranding,
   registerComponent,
   registerNavItem,
+  registerRoute,
 } from "@lambda-development/erp-core";
 import { AcmeDashboard } from "./dashboard";
+import { AcmeKpis } from "./kpis";
 
 // Point at the backend. Same-origin "/api" is the default; override per env.
 configureApiBase(import.meta.env.VITE_API_BASE ?? "/api");
@@ -21,5 +23,8 @@ configureBranding({
 // Swap the dashboard (the "/" index route) for our own component.
 registerComponent("Dashboard", AcmeDashboard);
 
-// Add a sidebar link under the existing "Reports" group.
-registerNavItem("Reports", { label: "Acme KPIs", path: "/reports/analytics" });
+// Add a page of our own and a sidebar link to it under the existing "Reports"
+// group. Give every added link its own path: the personal menu layout tells
+// entries apart by path, so reusing a core page's path would tie the two together.
+registerRoute({ path: "acme/kpis", element: <AcmeKpis /> });
+registerNavItem("Reports", { label: "Acme KPIs", path: "/acme/kpis" });

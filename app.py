@@ -14,18 +14,41 @@ import os
 # this in the environment (see .env.example / Dockerfile).
 os.environ.setdefault("LAMBDA_ERP_PLUGINS", "acme")
 
+# Behind a TLS proxy the app sees plain http requests. MCP / OAuth discovery
+# (how lambda.dev, Claude or ChatGPT connect to this ERP) must advertise the
+# public https address, so reuse OAUTH_REDIRECT_BASE when it is set. An explicit
+# MCP_PUBLIC_URL still wins; local development uses the request's own address.
+if os.environ.get("OAUTH_REDIRECT_BASE"):
+    os.environ.setdefault("MCP_PUBLIC_URL", os.environ["OAUTH_REDIRECT_BASE"])
+
 from fastapi import HTTPException  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from api.main import app  # noqa: E402  — env must be set before this import
 
+
+
+class _ImmutableStaticFiles(StaticFiles):
+    """Serve content-hashed build assets with a long-lived immutable cache.
+
+    Vite fingerprints every file under /assets, so the bytes at a given URL
+    never change: a new build emits new filenames. index.html stays `no-cache`
+    (below) so a new build is still picked up. Mirrors the core's own serving.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        return response
+
+
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 
 if os.path.isdir(FRONTEND_DIST):
     assets_dir = os.path.join(FRONTEND_DIST, "assets")
     if os.path.isdir(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        app.mount("/assets", _ImmutableStaticFiles(directory=assets_dir), name="assets")
 
     root = os.path.realpath(FRONTEND_DIST)
     index_html = os.path.join(root, "index.html")
@@ -41,4 +64,6 @@ if os.path.isdir(FRONTEND_DIST):
             candidate = os.path.realpath(os.path.join(root, full_path))
             if candidate.startswith(root + os.sep) and os.path.isfile(candidate):
                 return FileResponse(candidate)
-        return FileResponse(index_html)
+        # `no-cache`: always revalidate the unhashed shell, so a reload after an
+        # upgrade never serves an old index.html pointing at old asset URLs.
+        return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
