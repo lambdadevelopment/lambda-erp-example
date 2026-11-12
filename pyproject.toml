@@ -9,7 +9,7 @@ dependencies = [
     # Keep this in lockstep with the frontend core package
     # (@lambda-development/erp-core in frontend/package.json). The postgres
     # extra brings the driver for a Postgres LAMBDA_ERP_DB (docs/deploying.md).
-    "lambda-erp[postgres]==1.4.2",
+    "lambda-erp[postgres]==1.4.3",
     # Swiss QR-bill on invoices (acme/swiss_qr.py): qrbill builds the payment
     # part as SVG, cairosvg rasterises it to a PNG the PDF embeds. Cairo system
     # libs are already present for weasyprint.
